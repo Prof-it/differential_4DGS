@@ -1,7 +1,7 @@
 # Code Base 
-This repository contains the code to my research for my bachelors thesis on developing a novel method for 4D Gaussian Splatting. The code based on and adapted from the official implementation of the paper "3D Gaussian Splatting for Real-Time Radiance Field Rendering", which can be found [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/). 
+This repository contains the code to my research for my bachelors thesis on developing a novel method for 4D Gaussian Splatting. The code is based on and adapted from the official implementation of the paper "3D Gaussian Splatting for Real-Time Radiance Field Rendering", which can be found [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/). 
 
-# Multi-Multi Optimizer and Differential Batch Processing 4D Gaussian Splatting
+# Multi Optimizer and Differential Batch Processing 4D Gaussian Splatting
 Abstract: *This thesis explores the development of a novel method for 4D Gaussian Splatting with a focus on addressing some limitations of existing methods, such as memory usage, storage footprint and sequence length. The method is a multi-optimizer differential training system, which only processes the differences between consecutive frames to avoid storing and re-processing redundant data. 
 It employs a batch training system to enable unlimited scalability of the length of sequences and maintain a GPU memory usage below 7.6gb. Therefore, supports the deployment and research for users with consumer-grade hardware. Given enough hard drive storage the sequences can be arbitrarily long with average uncompressed file sizes below 1mb per frame.  
 By keeping the resulting format a common 3D Gaussian Splatting Stanford PLY file, a simple integration into existing third-party applications is facilitated. An evaluation on widely used datasets such as “coffee_martini”, “flame_salmon” and a custom sequence “Juggling” demonstrates a significant storage reduction from 37.5gb (traditional flip-book approach) to 0.03gb (compressed files of coffee_martini) while maintaining competitive PSNR values. 
@@ -172,7 +172,7 @@ SIBR has many other functionalities, please see the [documentation](https://sibr
 ## Processing your own Scenes
 
 Please Install COLMAP onto your system.
-```
+
 Then you can simply run sychvideos.py pointing to the directory containing the source videos of all cameras:
 ```shell
 python synchvideos.py --videosdir <directory containing source videos> --referencevideo <path to referencevideo> --targetdir <path to target directory>
@@ -195,4 +195,3 @@ python synchvideos.py --videosdir <directory containing source videos> --referen
   #### --skipsync
   Flag to skip synching process if videos are already synched. Default: False
 </details>
-s
