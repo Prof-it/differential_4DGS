@@ -104,7 +104,7 @@ def compute_frame_references(
             #convert NumPy array to a PIL image
             binary_diff_mask_pil = Image.fromarray((binary_diff_mask_np * 255).astype('uint8'))
             #display PIL image
-            #binary_diff_mask_pil.show()
+            binary_diff_mask_pil.show()
     oneShow += 1
     return reference_counts
 

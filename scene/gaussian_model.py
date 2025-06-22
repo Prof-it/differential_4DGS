@@ -52,13 +52,14 @@ class GaussianModel:
         self.rotation_activation = torch.nn.functional.normalize
 
 
-    def __init__(self, sh_degree, totalFrames, training_batch, optimizer_type="default"):
+    def __init__(self, sh_degree, totalFrames, training_batch, optimizer_type="default", spare_gaussians_amount=0):
         self.active_sh_degree = 0
         self.optimizer_type = optimizer_type
         self.max_sh_degree = sh_degree 
         self.total_frames = totalFrames
         self.training_batch = training_batch
         self.current_reference_counts = None
+        self.spare_gaussians_amount = spare_gaussians_amount
         self._xyz = []
         for i in range(round(totalFrames)):#totalFrames)): 
             self._xyz.append(torch.empty(0))
@@ -326,6 +327,22 @@ class GaussianModel:
                 # A special version of the rasterizer is required to enable sparse adam
                 return torch.optim.Adam(l, lr=0.0, eps=1e-15)
         return None
+    
+    def append_value_to_tensor(self, tensor, num_entries, fill_value=0):
+        """
+        Appends entries with a specific fill value to a tensor along the first dimension.
+        """
+        if num_entries <= 0:
+            return tensor
+        
+        print(tensor)
+
+        #Create the fill tensor
+        fill_shape = (num_entries,) + tensor.shape[1:]
+        fill_tensor = torch.full(fill_shape, fill_value, dtype=tensor.dtype, device=tensor.device)
+
+        #Concatenate
+        return torch.cat([tensor, fill_tensor], dim=0)
 
     def training_setup(self, training_args, frame_variations, viewpoint_stack, batch = 0, move_pointcloud = False):
         self.percent_dense = training_args.percent_dense
@@ -451,18 +468,30 @@ class GaussianModel:
     def save_ply(self, path, quantize=True):
         mkdir_p(path)
         for frame in range(1 if self.training_batch>0 else 0, self.total_frames):
-
             ply_save_path = os.path.join(path, "frame" + str(frame + (self.training_batch * (self.total_frames-1))) + ".ply")
             reference_save_path = os.path.join(path, "frame" + str(frame + (self.training_batch * (self.total_frames-1))) + "_references.move")
 
-            xyz = self._xyz[frame].detach().cpu().numpy()
-            normals = np.zeros_like(xyz)
-            f_dc = self._features_dc[frame].detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
-            f_rest = self._features_rest[frame].detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
-            opacities =  self._opacity[frame].detach().cpu().numpy()
+            spare_gaussians_to_add = 0
+            #if frame 0 of first batch add spare gaussians to every property.
+            if(frame==0):
+                spare_gaussians_to_add = self.spare_gaussians_amount
+        
             
-            scale = self._scaling[frame].detach().cpu().numpy()
-            rotation = self._rotation[frame].detach().cpu().numpy()
+            xyz = self.append_value_to_tensor(self._xyz[frame], spare_gaussians_to_add).detach().cpu().numpy()
+            normals = np.zeros_like(xyz)
+            f_dc = self.append_value_to_tensor(self._features_dc[frame], spare_gaussians_to_add).detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
+            f_rest = self.append_value_to_tensor(self._features_rest[frame], spare_gaussians_to_add).detach().transpose(1, 2).flatten(start_dim=1).contiguous().cpu().numpy()
+            opacities =  self.append_value_to_tensor(self._opacity[frame], spare_gaussians_to_add, -10).detach().cpu().numpy()
+            
+            scale = self.append_value_to_tensor(self._scaling[frame], spare_gaussians_to_add, -10).detach().cpu().numpy()
+            rotation = self.append_value_to_tensor(self._rotation[frame], spare_gaussians_to_add).detach().cpu().numpy()
+
+            saveable_reference_counts = self.current_reference_counts[frame]
+
+            #add false value of spare gaussians to reference counts to all frames of first batch
+            if(self.training_batch==0):
+                 saveable_reference_counts = self.append_value_to_tensor(saveable_reference_counts, self.spare_gaussians_amount, frame)
+
 
             dtype_code = 'f4'
             #quantize if desired
@@ -487,14 +516,13 @@ class GaussianModel:
 
             dtype_full = [(attribute, dtype_code) for attribute in self.construct_list_of_attributes(frame)]
 
-
             elements = np.empty(xyz.shape[0], dtype=dtype_full)
             attributes = np.concatenate((xyz, normals, f_dc, f_rest, opacities, scale, rotation), axis=1)
             elements[:] = list(map(tuple, attributes))
             el = PlyElement.describe(elements, 'vertex')
             PlyData([el]).write(ply_save_path)
             #torch.save(self.current_reference_counts[frame], reference_save_path)
-            file_helper.save_tensor_to_file(self.current_reference_counts[frame], reference_save_path)
+            file_helper.save_tensor_to_file(saveable_reference_counts, reference_save_path)
 
     def save_plyNEWOLD(self, path):
         mkdir_p(os.path.dirname(path))

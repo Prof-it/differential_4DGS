@@ -1,4 +1,5 @@
 # Code Base 
+<<<<<<< HEAD
 This repository contains the code to my research for my bachelors thesis on developing a novel method for 4D Gaussian Splatting. The code is based on and adapted from the official implementation of the paper "3D Gaussian Splatting for Real-Time Radiance Field Rendering", which can be found [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/). 
 
 # Multi Optimizer and Differential Batch Processing 4D Gaussian Splatting
@@ -6,6 +7,12 @@ Abstract: *This thesis explores the development of a novel method for 4D Gaussia
 It employs a batch training system to enable unlimited scalability of the length of sequences and maintain a GPU memory usage below 7.6gb. Therefore, supports the deployment and research for users with consumer-grade hardware. Given enough hard drive storage the sequences can be arbitrarily long with average uncompressed file sizes below 1mb per frame.  
 By keeping the resulting format a common 3D Gaussian Splatting Stanford PLY file, a simple integration into existing third-party applications is facilitated. An evaluation on widely used datasets such as “coffee_martini”, “flame_salmon” and a custom sequence “Juggling” demonstrates a significant storage reduction from 37.5gb (traditional flip-book approach) to 0.03gb (compressed files of coffee_martini) while maintaining competitive PSNR values. 
 This work lays a foundation to support the ongoing research for 4D Gaussian Splatting and to make volumetric video more practical, both in file size and accessibility for users.*
+=======
+This repository contains the code to our research on developing a novel method for 4D Gaussian Splatting. The code is based on and adapted from the official implementation of the paper "3D Gaussian Splatting for Real-Time Radiance Field Rendering", which can be found [here](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/). 
+
+# Multi-Optimizer and Differential Batch Processing 4D Gaussian Splatting
+Abstract: *We propose a scalable training method for full scene Dynamic Gaussian Splatting that significantly reduces memory usage and storage footprint while maintaining high visual fidelity and scene flexibility. Our pipeline introduces a batch-wise differential training and per-frame storage using standard PLY files. We demonstrate training and real-time rendering of arbitrarily long dynamic sequences on consumer-grade GPUs, with average file sizes below 1MB per frame and GPU memory usage below 7.6GB. Furthermore, this approach introduces the ability to handle growing and emerging objects throughout the sequence. Our method aims to support researchers by making volumetric video using Gaussian Splatting more accessible to users with consumer grade hardware, and simplify the integration into existing third party Gaussian Splatting applications.*
+>>>>>>> aa4e20b (Added Spare Gaussians)
 
 ### Setup
 
@@ -190,6 +197,8 @@ python synchvideos.py --videosdir <directory containing source videos> --referen
   Frame to trim the videos to. Default: 100
   #### --framerate
   Framerate of recorded videos. Default: 30
+  #### --fileformat
+  Fileformat of the recorded videos (MP4, MOV, etc). Default: MOV
   #### --downscale
   Flag to downscale extracted images. Default: False
   #### --skipsync

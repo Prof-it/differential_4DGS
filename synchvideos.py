@@ -8,7 +8,7 @@ import glob
 import shutil
 from typing import Sequence
 from audioalignment import find_time_offset
-
+import sys 
 from absl import flags
 from absl import app
 from subprocess import Popen, PIPE
@@ -39,6 +39,10 @@ _FRAMERATE = flags.DEFINE_integer(
     name='framerate',
     default=30,
     help='The framerate of the videos')
+_FILEFORMAT = flags.DEFINE_integer(
+    name='fileformat',
+    default="mov",
+    help='the format of the video (mp4, mov...)')
 _DOWNSCALE = flags.DEFINE_bool(
     name='downscale',
     default=False,
@@ -47,9 +51,12 @@ _SKIPSYNC = flags.DEFINE_bool(
     name='skipsync',
     default=False,
     help='Only extract images')
+_SKIPEXTRACT = flags.DEFINE_bool(
+    name='skipextract',
+    default=False,
+    help='Only extract images')
 
 #os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
 
 def get_cam_name(video_path):
     print(os.path.normpath(video_path).split("\\")[-2])
@@ -135,7 +142,7 @@ def sync():
         os.makedirs(tmp_video_dir)
 
     #loop through cams
-    video_path_list = glob.glob(os.path.join(__VIDEOSDIR.value,"**", "*.mp4"), recursive=True)
+    video_path_list = glob.glob(os.path.join(__VIDEOSDIR.value,"**", "*."+_FILEFORMAT.value), recursive=True)
 
     for video_path in video_path_list:
 
@@ -144,7 +151,7 @@ def sync():
             continue
         
         #check if endframe already exists and skip this folder
-        if(os.path.isfile(os.path.join(_TARGETDIR.value, "frames", get_cam_name(video_path), str(_ENDFRAME.value-_FRAMESTART.value-1)+".png"))):
+        if(os.path.isfile(os.path.join(_TARGETDIR.value, "frames", get_cam_name(video_path), str(_ENDFRAME.value-_FRAMESTART.value-1)+".jpg"))):
             print("Skipped folder " + video_path)
             continue
 
@@ -174,11 +181,8 @@ def main(argv: Sequence[str]) -> None:
 
     #start SpacetimeGaussians Pre No Prior script without extracting the frames
     args = 'python', 'pre_no_prior_noframes.py', '--videosdir', _TARGETDIR.value, '--startframe', '0', '--endframe', str(_ENDFRAME.value - _FRAMESTART.value), '--refframe', '0'
-    process = Popen(args, stdout=PIPE, stderr=PIPE)
-    output, err = process.communicate()
+    process = Popen(args, stdout=sys.stdout, stderr=sys.stderr)
     exit_code = process.wait()
-
-    print(output)
     print("done")
 
 

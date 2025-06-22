@@ -64,7 +64,6 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     batch = 0
     main_reference_viewpoints = None
     last_previous_gaussian_frame : gaussian_frame.GaussianFrame = None
-    spare_gaussians = torch.empty(args.spare_gaussians)
 
     while(True):
         dataset.start_frame = args.start_frame + (batch * (args.total_frames - 1))
@@ -76,7 +75,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         first_iter = 0
         tb_writer = prepare_output_and_logger(dataset, batch)
-        gaussians = GaussianModel(dataset.sh_degree, dataset.total_frames,batch, opt.optimizer_type)
+        gaussians = GaussianModel(dataset.sh_degree, dataset.total_frames,batch, opt.optimizer_type, spare_gaussians_amount=args.spare_gaussians)
         scene = Scene(dataset, gaussians)
 
         use_sparse_adam = opt.optimizer_type == "sparse_adam" and SPARSE_ADAM_AVAILABLE 
@@ -387,7 +386,20 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 #del visibility_filter
                 
         del last_previous_gaussian_frame
-        last_previous_gaussian_frame = gaussian_frame.GaussianFrame(gaussians.get_xyz(args.total_frames-1).detach().clone(),gaussians.get_features_dc(args.total_frames-1).detach().clone(),gaussians.get_features_rest(args.total_frames-1).detach().clone(),gaussians.scaling_inverse_activation(gaussians.get_scaling(args.total_frames-1)).detach().clone(),gaussians.get_rotation_unnormalized(args.total_frames-1).detach().clone(),gaussians.inverse_opacity_activation(gaussians.get_opacity(args.total_frames-1)).detach().clone(), gaussians.max_radii2D[args.total_frames-1].detach().clone(), args.total_frames)
+
+        spare_gaussians_to_add = 0
+        #add spare gaussians if first batch
+        if(batch == 0):
+            spare_gaussians_to_add = args.spare_gaussians
+        last_previous_gaussian_frame = gaussian_frame.GaussianFrame(
+            gaussians.append_value_to_tensor(gaussians.get_xyz(args.total_frames-1).detach().clone(), spare_gaussians_to_add),
+            gaussians.append_value_to_tensor(gaussians.get_features_dc(args.total_frames-1).detach().clone(), spare_gaussians_to_add),
+            gaussians.append_value_to_tensor(gaussians.get_features_rest(args.total_frames-1).detach().clone(), spare_gaussians_to_add),
+            gaussians.append_value_to_tensor(gaussians.scaling_inverse_activation(gaussians.get_scaling(args.total_frames-1)).detach().clone(), spare_gaussians_to_add, -10),
+            gaussians.append_value_to_tensor(gaussians.get_rotation_unnormalized(args.total_frames-1).detach().clone(), spare_gaussians_to_add),
+            gaussians.append_value_to_tensor(gaussians.inverse_opacity_activation(gaussians.get_opacity(args.total_frames-1)).detach().clone(), spare_gaussians_to_add, -10), 
+            gaussians.append_value_to_tensor(gaussians.max_radii2D[args.total_frames-1].detach().clone(), spare_gaussians_to_add), 
+            args.total_frames)
         for optimizer in gaussians.optimizer:
             del optimizer
         del gaussians.exposure_optimizer
