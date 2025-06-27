@@ -116,6 +116,12 @@ def filter_by_reference(input_tensor, reference_counts, frame):
     
     return input_tensor[mask]
 
+def add_masked_elements_to_tensor(current_frame_idx, reference_counts, tensor_list, new_tensor_values):
+    mask = reference_counts == 0
+    new_tensor = tensor_list[current_frame_idx-1].clone()
+    new_tensor[mask] = new_tensor_values
+    return new_tensor
+
 def select_masked_elements_in_tensorUNOPTIMIZED(current_frame_idx, reference_counts, tensor_list):
     device = tensor_list[0].device
     property_dims = tensor_list[0].shape[1:]
@@ -126,46 +132,154 @@ def select_masked_elements_in_tensorUNOPTIMIZED(current_frame_idx, reference_cou
         new_tensor[mask.nonzero(as_tuple=True)[0]] = tensor_list[i][scaled_mask]
     return new_tensor
 
+def select_masked_elements_in_tensorSLOWERTHANFASTERBUTFAST(current_frame_idx, reference_counts, tensor_list):
+    """
+    Optimized and vectorized selection of elements based on reference counts.
+    """
+    device = tensor_list[0].device
+    dtype = tensor_list[0].dtype
+    total_num_points = reference_counts[0].shape[0]
+    property_dims = tensor_list[0].shape[1:]
+
+    # Preallocate the minimal necessary memory
+    full_tensors = torch.zeros(
+        (current_frame_idx + 1, total_num_points, *property_dims),
+        dtype=dtype,
+        device=device
+    )
+
+    # Vectorized fill: only assign where mask is True
+    for f in range(current_frame_idx + 1):
+        mask = reference_counts[f] == 0
+        if mask.any():
+            full_tensors[f][mask] = tensor_list[f]
+
+    # Compute the frame index from which to sample each point
+    current_ref = reference_counts[current_frame_idx]
+    source_frames = torch.clamp(current_frame_idx - current_ref.long(), min=0, max=current_frame_idx)
+    points_idx = torch.arange(total_num_points, device=device)
+
+    # Direct indexing
+    selected_elements = full_tensors[source_frames, points_idx]
+
+    return selected_elements
+
+
 def select_masked_elements_in_tensor(current_frame_idx, reference_counts, tensor_list):
     """
-    reconstructs property values from previous frames based on reference_counts
+    Optimized and corrected: fills full tensors for all frames based on reference_counts,
+    and performs fully vectorized selection from source frames.
     """
 
-    full_tensors = []
+    device = tensor_list[0].device
+    dtype = tensor_list[0].dtype
     total_num_points = reference_counts[0].shape[0]
-    #reconstruct full tensors from the filtered ones for frames 0..current_frame_idx.
+    property_dims = tensor_list[0].shape[1:]
+
+    # Allocate full tensor batch: shape [F, N, *D]
+    full_tensors = torch.zeros(
+        (current_frame_idx + 1, total_num_points, *property_dims),
+        dtype=dtype,
+        device=device
+    )
+
+    # Fill each full tensor using its mask
     for f in range(current_frame_idx + 1):
-        # Create the mask that was used during filtering.
-        mask = (reference_counts[f] == 0)  # shape: [total_num_points]
-        filtered_tensor = tensor_list[f]
-        
-        #some properties have different dimensions(rotation, position, features).
-        property_dims = filtered_tensor.shape[1:]  #could be (K,) or more dimensions
-        full_tensor = torch.zeros((total_num_points, *property_dims),
-                                    dtype=filtered_tensor.dtype,
-                                    device=filtered_tensor.device)
-        
-        #place the filtered values back into their original positions.
-        full_tensor[mask] = filtered_tensor
-        full_tensors.append(full_tensor)
-    
-    tensor_stacked = torch.stack(full_tensors, dim=0)
-    
-    #for each point in the current frame, determine from which previous frame to pick the property value.
+        mask = reference_counts[f] == 0  # shape: [N]
+        full_tensors[f][mask] = tensor_list[f]
+
+    # Reference mapping for current frame
+    current_ref = reference_counts[current_frame_idx]  # shape: [N]
+    source_frames = torch.clamp(current_frame_idx - current_ref.long(), min=0, max=current_frame_idx)
+
+    points_idx = torch.arange(total_num_points, device=device)
+
+    # Select correct elements based on source frame and point
+    if len(property_dims) == 0:
+        selected_elements = full_tensors[source_frames, points_idx]  # shape: [N]
+    else:
+        selected_elements = full_tensors[source_frames, points_idx, ...]  # shape: [N, *D]
+
+    return selected_elements
+
+
+def select_masked_elements_in_tensorCHATGP1(current_frame_idx, reference_counts, tensor_list):
+    """
+    Optimized version: reconstructs property values from previous frames 
+    based on reference_counts using vectorized operations.
+    """
+
+    total_num_points = reference_counts[0].shape[0]
+    device = tensor_list[0].device
+    dtype = tensor_list[0].dtype
+
+    # infer property dims from the last frame's tensor
+    property_dims = tensor_list[0].shape[1:]
+
+    # Preallocate full tensor for all frames
+    full_tensors = torch.zeros(
+        (current_frame_idx + 1, total_num_points, *property_dims),
+        dtype=dtype,
+        device=device
+    )
+
+    # Vectorized scatter-fill: for each frame, fill full tensor from filtered tensor
+    for f in range(current_frame_idx + 1):
+        mask = (reference_counts[f] == 0)
+        full_tensors[f][mask] = tensor_list[f]
+
+    # Determine source frame for each point in the current frame
     current_ref = reference_counts[current_frame_idx]
-    
     source_frames = current_frame_idx - current_ref.long()
-    source_frames = torch.clamp(source_frames, min=0, max=current_frame_idx)  #avoid negative indices
-    
-    #create points indices
-    points_idx = torch.arange(total_num_points, device=tensor_stacked.device)
-    
-    #select elements
-    if(tensor_stacked.dim() > 3):
+    source_frames = torch.clamp(source_frames, min=0, max=current_frame_idx)
+
+    # Select values: use gather-like indexing
+    points_idx = torch.arange(total_num_points, device=device)
+
+    if full_tensors.dim() > 3:
+        selected_elements = full_tensors[source_frames, points_idx, :, :]
+    else:
+        selected_elements = full_tensors[source_frames, points_idx]
+
+    return selected_elements
+
+
+def select_masked_elements_in_tensorOLD(current_frame_idx, reference_counts, tensor_list):
+    """
+    Reconstruct property values from previous frames based on reference_counts
+    in an optimized way.
+    """
+
+    total_num_points = reference_counts[0].shape[0]
+    ref_dtype = tensor_list[0].dtype
+    ref_device = tensor_list[0].device
+    property_dims = tensor_list[0].shape[1:]  # assume consistent shape
+
+    # Preallocate a tensor to hold all frames
+    tensor_stacked = torch.zeros(
+        (current_frame_idx + 1, total_num_points, *property_dims),
+        dtype=ref_dtype,
+        device=ref_device
+    )
+
+    # Refill only masked positions in preallocated tensor
+    for f in range(current_frame_idx + 1):
+        mask = (reference_counts[f] == 0)
+        tensor_stacked[f, mask] = tensor_list[f]
+
+    # Compute indices to select
+    current_ref = reference_counts[current_frame_idx]
+    source_frames = current_frame_idx - current_ref.long()
+    source_frames = torch.clamp(source_frames, min=0, max=current_frame_idx)
+
+    points_idx = torch.arange(total_num_points, device=ref_device)
+
+    # Final selection
+    if tensor_stacked.dim() > 3:
         selected_elements = tensor_stacked[source_frames, points_idx, :, :]
     else:
         selected_elements = tensor_stacked[source_frames, points_idx]
-    
+
     return selected_elements
 
 def calculate_frame_variations(viewpoint_stack, threshold, dilation=0):

@@ -212,7 +212,7 @@ class GaussianModel:
     
     def get_features_raw(self, frame):
         features_dc = self.get_features_dc(frame, True)
-        features_rest = self.get_features(frame,True)
+        features_rest = self.get_features_rest(frame,True)
         return torch.cat((features_dc, features_rest), dim=1)
     
     def get_features_dc_raw(self, frame):

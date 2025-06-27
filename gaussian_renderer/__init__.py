@@ -149,7 +149,6 @@ def render_interpolated(viewpoint_camera, pc : GaussianModel, pipe, bg_color : t
     end_frame = future_frame
     interpolation_position = frame - start_frame 
 
-
     # Create zero tensor. We will use it to make pytorch return gradients of the 2D (screen-space) means
     screenspace_points = torch.zeros_like(interpolate_tensors(pc.get_xyz(start_frame, raw_render),pc.get_xyz(end_frame, raw_render),interpolation_position), dtype=pc._xyz[start_frame].dtype, requires_grad=True, device="cuda") + 0
     try:
@@ -285,6 +284,7 @@ def render_interpolated(viewpoint_camera, pc : GaussianModel, pipe, bg_color : t
 
 
 def interpolate_tensors(tensor1: torch.Tensor, tensor2: torch.Tensor, position: float) -> torch.Tensor:
+    return tensor1
     #return slerp_tensors(tensor1, tensor2, position)
 
     """
