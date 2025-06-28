@@ -40,6 +40,8 @@ then start the SIBR viewer:
 "./viewers/bin/SIBR_remoteGaussian_app.exe" --ip 127.0.0.1 --port 6009
 ```
 
+https://github.com/Prof-it/differential_4DGS/blob/main/media/Demo.mp4
+
 ## SIBR Viewer Setup
 For the SIBR Viewer Setup please refer to the following instructions by the GRAPHDECO group:
 
