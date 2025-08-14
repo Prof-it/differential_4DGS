@@ -4,6 +4,8 @@ This repository contains the code to our research on developing a novel method f
 # Multi-Optimizer and Differential Batch Processing 4D Gaussian Splatting
 Abstract: *We propose a scalable training method for full scene Dynamic Gaussian Splatting that significantly reduces memory usage and storage footprint while maintaining high visual fidelity and scene flexibility. Our pipeline introduces a batch-wise differential training and per-frame storage using standard PLY files. We demonstrate training and real-time rendering of arbitrarily long dynamic sequences on consumer-grade GPUs, with average file sizes below 1MB per frame and GPU memory usage below 7.6GB. Furthermore, this approach introduces the ability to handle growing and emerging objects throughout the sequence. Our method aims to support researchers by making volumetric video using Gaussian Splatting more accessible to users with consumer grade hardware, and simplify the integration into existing third party Gaussian Splatting applications.*
 
+[![Demonstational Video](https://img.youtube.com/vi/8O_gZsdyL9s/0.jpg)](https://www.youtube.com/watch?v=8O_gZsdyL9s)
+
 ### Setup
 
 #### Install 3D Gaussian Splatting
@@ -39,8 +41,6 @@ then start the SIBR viewer:
 ```shell
 "./viewers/bin/SIBR_remoteGaussian_app.exe" --ip 127.0.0.1 --port 6009
 ```
-
-https://github.com/Prof-it/differential_4DGS/blob/main/media/Demo.mp4
 
 ## SIBR Viewer Setup
 For the SIBR Viewer Setup please refer to the following instructions by the GRAPHDECO group:
